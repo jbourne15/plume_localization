@@ -1,0 +1,34 @@
+<launch>
+    <node name="plumeNode" pkg="plume_localization" type="plume.py"/>
+    <node name="AstarNode" pkg="plume_localization" type="AstarNode.py" output="screen"/>
+    <node name="stateNode" pkg="plume_localization" type="stateNode.py"/>
+    <node name="refinementNode" pkg="plume_localization" type="refinementNode.py"/>
+    <node name="gradientNode" pkg="plume_localization" type="gradientNode.py"/>
+
+    <arg name="width" default="10"/>
+    <arg name="height" default="10"/>
+    <arg name="resolution" default="NOT BEING USED"/>
+
+    <arg name="Q" default="1"/>
+    <arg name="xs" default="0"/>
+    <arg name="ys" default="5"/>
+    <arg name="v" default="1"/>
+    <arg name="H" default="2.5"/>
+    <arg name="Dy" default=".5"/>
+    <arg name="Dz" default=".5"/>
+    <arg name="Lrate" default="20"/>
+
+    <param name="resolution" value="$(arg resolution)"/>
+    <param name="width" value="$(arg width)"/>
+    <param name="height" value="$(arg height)"/>
+    <param name="Q" value="$(arg Q)"/>
+    <param name="xs" value="$(arg xs)"/>
+    <param name="ys" value="$(arg ys)"/>
+    <param name="v" value="$(arg v)"/>
+    <param name="H" value="$(arg H)"/>
+    <param name="Dy" value="$(arg Dy)"/>
+    <param name="Dz" value="$(arg Dz)"/>
+    <param name="Lrate" value="$(arg Lrate)"/>
+</launch>
+
+
