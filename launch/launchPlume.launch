@@ -1,0 +1,22 @@
+<launch>
+    <node name="environmentNode" pkg="plume_localization" type="environmentNode.py"/>
+    <node name="actionNode" pkg="plume_localization" type="actionNode.py" output="screen"/>
+
+    <arg name="width" default="100"/>
+    <arg name="height" default="100"/>
+    <arg name="resolution" default="100"/>
+    <arg name="Lrate" default="20"/>
+    <arg name="w" default=".5 .5"/>
+    <arg name="s0" default="0 0"/>
+    <arg name="g" default="0 0"/>
+    
+
+    <param name="resolution" value="$(arg resolution)"/>
+    <param name="width" value="$(arg width)"/>
+    <param name="height" value="$(arg height)"/>
+    <param name="Lrate" value="$(arg Lrate)"/>
+    <param name="w" value="$(arg w)"/>
+    <param name="s0" value="$(arg s0)"/>
+    <param name="g" value="$(arg g)"/>
+</launch>
+

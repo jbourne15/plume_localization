@@ -1,0 +1,175 @@
+#!/usr/bin/env python
+
+import rospy
+from std_msgs.msg import String
+from std_msgs.msg import Float64MultiArray, Int16MultiArray
+from geometry_msgs.msg import PointStamped
+from graphSearch import Astar
+import numpy as np
+import math
+
+_ACTIONS = [('N', [-1,0]),('E', [0,1]),('S',[1,0]),('W',[0,-1]),('NE',[-1,1]),('NW',[-1,-1]),\
+            ('SE',[1,1]),('SW',[1,-1]), ('STAY',[0,0])]
+
+
+class actionNode():
+
+    def __init__(self):
+        pub = rospy.Publisher('action', String, queue_size=1)
+        rospy.Subscriber("concentration", Float64MultiArray, self.concentrationCallback)
+        rospy.init_node('actionNode')
+        
+        loopRate = rospy.get_param('Lrate', 20)/2
+        # loopRate = 10
+
+        rate = rospy.Rate(loopRate)
+        
+        # self.width = width
+        # self.height = height
+        # self.resolution = resolution
+
+        self.width = rospy.get_param("width",100)
+        self.height = rospy.get_param("height",100)
+        self.resolution = rospy.get_param("resolution",100)
+
+
+        self.planner = Astar(self.width, self.height, self.resolution)
+        rospy.Subscriber("/clicked_point", PointStamped, self.goal_callback)
+        rospy.Subscriber("state", Int16MultiArray, self.state_callback)
+        
+
+        w = rospy.get_param('w',[0,1])
+        w = w.split()
+        w = [float(i) for i in w]
+
+        self.set_actionWeights(np.array(w)) # these are the weights I change gradientW, plannerW
+        self.sendAction = 'STAY'
+        self.gradientAction = 'STAY'
+        
+        self.goal = rospy.get_param('g', [0, 0])
+        self.goal = self.goal.split()
+        self.goal = [float(i) for i in self.goal]
+        # self.goal.reverse
+
+        # print self.goal, type(self.goal)
+
+        if self.goal[0]>=self.resolution:
+            self.goal[0]=self.resolution-1
+        elif self.goal[0]<0:
+            self.goal[0] = 0.0
+        if self.goal[1]>=self.resolution:
+            self.goal[1]=self.resolution-1
+        elif self.goal[1]<0:
+            self.goal[1] = 0.0
+
+        # print self.goal, type(self.goal)
+        
+        self.planner.set_goal(tuple(self.goal))# init goal location
+
+        while not rospy.is_shutdown():
+            if self.planner.state is not None:
+                self.planner.runAstar()
+                self.set_sendAction()
+                pub.publish(self.sendAction)
+                # pub.publish(self.gradientAction)
+            rate.sleep()
+
+    def concentrationCallback(self, concentration):
+        # this callback function finds the action in the steepest gradient
+        max_A = []
+        if len(concentration.data)>0:
+            i = 0
+            c_so = concentration.data[len(concentration.data)-1] # last concentration value is at current state from (STAY)
+            max_dC = -1000000
+            test = []
+            # max_C = max(concentration.data)
+            for c_si in concentration.data:
+                dC = -c_so + c_si
+                # print dC
+                if dC >= max_dC:
+                    max_dC = dC
+                    # max_A.append(_ACTIONS[i])
+                    max_A = _ACTIONS[i]
+                i = i + 1
+            # import pdb; pdb.set_trace() 
+
+            # print max_dC, max_A
+            # max_A = np.random.choice(max_A)
+            self.gradientAction = max_A[0]
+
+    def goal_callback(self, goal):
+        setGoal = np.rint(np.array((goal.point.x-1, goal.point.y-1))/self.resolution)
+        # print 'setGoal:',setGoal
+        
+        # angle = -90
+        # theta = (angle/180.) * np.pi
+        # rotMatrix = np.array([[np.cos(theta), -np.sin(theta)], 
+                         # [np.sin(theta),  np.cos(theta)]])
+
+        # setGoal = np.dot(rotMatrix, setGoal)
+        # setGoal = np.rint(setGoal)
+        # if setGoal[0]
+        
+        # print setGoal[0],setGoal[1]
+        
+        if setGoal[0]<0:
+            setGoal[0]=0
+        elif setGoal[0]>=self.width:
+            setGoal[0] = self.width-1
+
+        if setGoal[1]<0:
+            setGoal[1]=0
+        elif setGoal[1]>=self.height:
+            setGoal[1] = self.height-1
+
+        self.planner.set_goal(tuple(setGoal))
+
+    def state_callback(self, state):
+        setState = state.data
+        self.planner.set_state(setState)
+    
+    def set_sendAction(self):
+        self.sendAction = 'STAY'
+        gA = [0,0]
+        pA = [0,0]
+        for a, i in _ACTIONS: #extract unit vectors for each action (self.gradientAction and planner action) from _ACTIONS
+            if a == self.gradientAction:
+                gA = i
+            if a == self.planner.get_action():
+                pA = i
+
+        A =np.array([gA, pA]) 
+        wA = np.zeros(np.shape(A))
+        # print wA
+        for i in range(0,len(A)): # create weights matrix for the actions
+            wA[i] = A[i]*self.weights[i]
+
+        tA = 0
+        for i in range(0,len(A)): # sum over all weighted actions
+            tA = tA + wA[i]
+        # print np.linalg.norm(tA), np.linalg.norm(tA) !=0
+        
+        if math.isnan(np.linalg.norm(tA)) is not True and np.linalg.norm(tA) != 0:
+            tA = np.round(tA/np.linalg.norm(tA))
+
+        for a, i in _ACTIONS:
+            if i == list(tA):
+                self.sendAction = a
+        
+        stg = 'none'
+        if self.sendAction == self.gradientAction:
+            stg = 'gradientAction'
+        elif self.sendAction == self.planner.get_action():
+            stg = 'plannerAction'
+        if self.sendAction == self.planner.get_action() and self.sendAction == self.gradientAction:
+            stg = 'both'
+        if self.sendAction != self.planner.get_action() and self.sendAction != self.gradientAction:
+            stg = 'neither'
+        
+        print 'gA:', self.gradientAction, 'pA:', self.planner.get_action(), 'sendA:', self.sendAction, stg, tA
+
+    def set_actionWeights(self,w):
+        self.weights = w
+
+if __name__=="__main__":
+    actionNode()
