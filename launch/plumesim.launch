@@ -5,15 +5,15 @@
     <node name="refinementNode" pkg="plume_localization" type="refinementNode.py"/>
     <node name="gradientNode" pkg="plume_localization" type="gradientNode.py"/>
 
-    <arg name="width" default="10"/>
-    <arg name="height" default="10"/>
+    <arg name="width" default="20"/>
+    <arg name="height" default="20"/>
     <arg name="resolution" default="NOT BEING USED"/>
 
     <arg name="Q" default="1"/>
     <arg name="xs" default="0"/>
-    <arg name="ys" default="5"/>
+    <arg name="ys" default="5"/>1
     <arg name="v" default="1"/>
-    <arg name="H" default="2.5"/>
+    <arg name="H" default="2"/>
     <arg name="Dy" default=".5"/>
     <arg name="Dz" default=".5"/>
     <arg name="Lrate" default="20"/>

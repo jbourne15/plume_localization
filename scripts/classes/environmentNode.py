@@ -3,7 +3,7 @@
 import numpy as np
 import math
 from copy import deepcopy
-from plumeModel import gaussPlume 
+from plumeModel import gaussPlume, linearPlume, randomPlume
 from robotState import robotMarker
 
 #ROS specific 
@@ -14,6 +14,9 @@ from visualization_msgs.msg import Marker
 from nav_msgs.msg import OccupancyGrid, MapMetaData, GridCells
 from geometry_msgs.msg import Pose, Point, Quaternion
 from geometry_msgs.msg import PointStamped
+# import rosbag
+
+
 
 
     # <node pkg="rviz" type="rviz" name="rviz" args="--display-config $(find plume_localization)/rviz/rviz_plume.rviz"/>
@@ -23,18 +26,19 @@ from geometry_msgs.msg import PointStamped
 
 _ACTIONS = [('N', [-1,0]),('E', [0,1]),('S',[1,0]),('W',[0,-1]),('NE',[-1,1]),('NW',[-1,-1]),\
             ('SE',[1,1]),('SW',[1,-1]), ('STAY',[0,0])]
-
+RECORDSTATE = 0
 
 class environment(object):
     '''this classe takes a plumeModel class and sents it to rviz for visualization.  This class acts as the 
     wrapper around my plumeModel to separate that class from ROS so I only have to change this class for ROS
-    updates.  This class also handles my robot state for visualization for ros. (I still need to make class for
-    robot state)
+    updates.  This class also handles my robot state for visualization for ros.
     '''
     def __init__(self):
         rospy.init_node('environmentNode')
         # self.type = rospy.get_param("type", 'gaussian')
-        self.type = 'gaussian'
+        self.type = 'linear'
+        self.type = rospy.get_param('type', ['linear'])
+
         # gaussian constructor/init inputs method
         # xs, ys, Q, Dy, Dz, v, h, originX, originY, resolution, width, height
         
@@ -45,13 +49,34 @@ class environment(object):
         if self.type=='gaussian':
             self.plumeMap = gaussPlume(xs=0,ys=self.width/2,Q=1,Dy=.5,Dz=.5,v=1,h=5,originX=0,originY=0,\
                                        resolution=self.resolution,width=self.width,height=self.height)
-            print self.plumeMap.get_conc()
+            # print self.plumeMap.get_conc()
             # print self.plumeMap.get_conc().shape
+        elif self.type =='linear':
+            # top
+            self.plumeMap = linearPlume(originX=0, originY=0, resolution=self.resolution, width=self.width,\
+                                        height=self.height, a=-1, b=0, c=-1, d=-200)
 
-        else:# default is gaussPlume
-            self.plumeMap = gaussPlume(xs=0,ys=self.width/2,Q=1,Dy=1,Dz=.5,v=1,h=10,originX=0,originY=0,\
-                                       resolution=self.resolution,width=self.width,height=self.height)
-                                    
+            # self.plumeMap = linearPlume(originX=0, originY=0, resolution=self.resolution, width=self.width,\
+                                        # height=self.height, a=-1, b=0, c=1, d=-200)
+
+            # top left
+            # self.plumeMap = linearPlume(originX=0, originY=0, resolution=self.resolution, width=self.width,\
+                                        # height=self.height, a=-1, b=-1, c=-1, d=-200)
+            # top right 
+            # self.plumeMap = linearPlume(originX=0, originY=0, resolution=self.resolution, width=self.width,\
+                                        # height=self.height, a=-1, b=1, c=-1, d=-200)
+            # bot right 
+            # self.plumeMap = linearPlume(originX=0, originY=0, resolution=self.resolution, width=self.width,\
+                                        # height=self.height, a=-1, b=-1, c=1, d=-200)
+            # bot left 
+            # self.plumeMap = linearPlume(originX=0, originY=0, resolution=self.resolution, width=self.width,\
+                                        # height=self.height, a=-1, b=1, c=1, d=-200)
+        elif self.type == 'random':
+            self.plumeMap = randomPlume(originX=0,originY=0, resolution=self.resolution, width=self.width,\
+                                        height=self.height, h=1, clx=100)
+    
+        # print self.plumeMap.get_conc().shape
+        
         self.plumeMap_pub = rospy.Publisher('map', OccupancyGrid, latch=True, queue_size=1)
         self.plumeMap_data_pub = rospy.Publisher('Cmap_metadata', MapMetaData, latch=True, queue_size=1)
         self.concentration_pub = rospy.Publisher('concentration', Float64MultiArray, queue_size=1)
@@ -67,9 +92,8 @@ class environment(object):
 
         self.startState = rospy.get_param('s0', [0, 0])
         self.startState = self.startState.split()
-        self.startState = [float(i) for i in self.startState]
-
-        # print self.startState, type(self.startState)
+        self.startState = [float(i)*self.resolution/(self.width*1.0) for i in self.startState]
+        # print 'reso/wid',float(self.resolution/self.width), self.resolution, self.width
 
         if self.startState[0]>=self.resolution:
             self.startState[0]=self.resolution-1
@@ -80,15 +104,25 @@ class environment(object):
         elif self.startState[1]<0:
             self.startState[1] = 0.0
 
-        # print self.startState, type(self.startState)
+        if RECORDSTATE:    # if this is true the program will record the distribution of the number of times
+                           # a state has been visited
+            # self.bag = rosbag.Bag('mydata.bag','w')
+            from collections import defaultdict
+            self.stateHistory = np.array([])
+            self.stateHistory = np.insert(self.stateHistory, 0, np.array(self.startState))
+            self.stateDis = {tuple(self.startState): 1}
+            self.stateDis = defaultdict(lambda: 0, self.stateDis)
+            import time
+            self.t1 = time.time()
+
 
         self.robotState.data.append(self.startState[0])
         self.robotState.data.append(self.startState[1]) # Y
-        # self.robotState.data.append(0) # ID
-        print self.robotState.data
+        print 'state:',self.robotState.data
         self.robotMarker.set_robotState(self.robotState)
 
-        loopRate = rospy.get_param('Lrate', 20)
+        loopRate = rospy.get_param('Lrate', 50)
+        # print type(loopRate)
         rate = rospy.Rate(loopRate) # must be must faster to avoid using old information
         self.publish_map()
         # print 'published concentration map'
@@ -120,10 +154,117 @@ class environment(object):
         # print 'c[state0]:', C[self.robotState.data[0], self.robotState.data[1]]
         self.robotState = statei
         # print action.data,'statei', self.robotState.data
+        
+        # print 'stateHistory:', self.stateHistory
+        if RECORDSTATE:
+            self.stateDis[tuple(self.robotState.data)] = self.stateDis[tuple(self.robotState.data)] + 1
+            self.stateHistory = np.insert(self.stateHistory,len(self.stateHistory),np.array(self.robotState.data))
+            # print 'stateH:', self.stateHistory
+            # print type(self.stateHistory), self.stateHistory.size, self.stateHistory.shape
+
+            # print 'dis:',self.stateDis
+
+            self.plotHisto()
         self.robotMarker.set_robotState(self.robotState)
         # print 'c[statei]:', C[self.robotState.data[0], self.robotState.data[1]]
         # print 'sendC:', self.sendConcentration
         # raw_input()
+
+    def plotHisto(self):
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+        import numpy as np
+        import time
+        
+        t2 = time.time()
+        # print t2-self.t1
+        c = 1
+        x = []
+        y = []
+        print len(self.stateHistory)/2
+        # if t2-self.t1 >= 30:p
+        if len(self.stateHistory)/2>=5000:
+            for i in self.stateHistory:
+                if c%2 is 0:
+                    #even
+                    # print 'xs', i
+                    x.append(i)
+                else:
+                    #odd    
+                    # print 'ys', i
+                    y.append(i)
+                c = c+1
+            
+            # x.append(100)
+            # y.append(100)
+            # x.append(0)
+            # y.append(100)
+            # x.append(100)
+            # y.append(0)
+        
+            x = np.array(x)
+            y = np.array(y)
+            
+            
+             # <!-- saves the data in ~/.ros folder -->
+            np.savetxt('mydata.csv', (x,y), delimiter=',')            
+            # t = h = o = np.arange(0.0,5.0,1.0)
+            # np.savetxt('hello.csv', t, delimiter=',')   # x,y,z equal sized 1D arrayes
+            # print 'saved'
+            # print y
+
+            # plt.hist2d(x,y,bins=self.resolution)
+            # plt.colorbar()
+            # plt.axis([0, self.width, 0, self.height])
+            # # plt.gca().invert_xaxis()
+            # plt.gca().invert_yaxis()
+            # plt.show()
+            '''
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
+            # x, y = np.random.rand(2, 100) * 4
+            
+            # print x
+            print "plotting"
+            hist, xedges, yedges = np.histogram2d(x, y, bins=50)
+
+            elements = (len(xedges) - 1) * (len(yedges) - 1)
+
+            xpos, ypos = np.meshgrid(xedges[:-1] + 0.25, yedges[:-1] + 0.25)
+
+            
+            xpos = xpos.flatten()
+            ypos = ypos.flatten()
+            zpos = np.zeros(elements)
+            dx = 0.5 * np.ones_like(zpos)
+            dy = dx.copy()
+            dz = hist.flatten()
+
+            ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color='blue', zsort='average')
+
+            plt.show()
+
+            '''
+
+            import numpy as np
+            import matplotlib.mlab as mlab
+            import matplotlib.pyplot as plt
+
+            # plt.ion()
+            # the histogram of the data
+
+            # raw_input("ready to plot?")
+            n, bins, patches = plt.hist(x, 100, normed=1, facecolor='green', alpha=0.75)
+            plt.axis([0, 100, 0, .3])
+            plt.grid(True)
+            plt.show()
+            
+            n, bins, patches = plt.hist(y, 100, normed=1, facecolor='green', alpha=0.75)            
+            plt.axis([0, 100, 0, .3])
+            plt.grid(True)
+            plt.show()
+
+
 
     def publish_map(self):
         """ Publish the map. """
@@ -131,11 +272,12 @@ class environment(object):
         grid_msg = self.to_message(Cgrid)
         self.plumeMap_data_pub.publish(grid_msg.info)
         self.plumeMap_pub.publish(grid_msg)
-   
+        
     
     def publish_concentration(self):
         self.sendConcentration = Float64MultiArray()
-        C =self.plumeMap.get_conc()
+        C =self.plumeMap.get_conc() # changed this to the normalize concentration for rviz 0 - 100
+
         for a, i in _ACTIONS:
             statei = deepcopy(self.robotState.data)
             statei[0] = statei[0]+i[0]
@@ -165,6 +307,13 @@ class environment(object):
 
     def publish_state(self):
         # print self.robotState
+        # try:
+        # print ''
+        # print self.robotState
+        # self.bag.write('state_bag',self.robotState)
+        # print 'hi'
+        # finally:
+            # self.bag.close()
         self.robotState_pub.publish(self.robotState)
         
     def to_message(self, grid):# this is my wrapper method for all of my child classes for various plume models such as gaussian, etc.
@@ -196,7 +345,3 @@ class environment(object):
 
 if __name__=="__main__":
     environment()
-
-
-
-

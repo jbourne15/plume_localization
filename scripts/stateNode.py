@@ -45,7 +45,7 @@ class stateNode():
             sendState.point.x = self.state.point.x +.5 - 1
             sendState.point.y = self.state.point.y +.5 - 1
             sendState.point.z = 0
-
+            print "sending state:", sendState.point
             pub.publish(sendState)
 
             self.robotMarker = Marker()
@@ -64,7 +64,7 @@ class stateNode():
             self.robotMarker.scale.x = 1.0
             self.robotMarker.scale.y = 1.0
             self.robotMarker.scale.z = 1.0
-            # self.robotMarker.scale.x = 1.0*self.r
+            # self.robotMarker.scale.x = 1.0*self.ry
             # self.robotMarker.scale.y = 1.0*self.r
             # self.robotMarker.scale.z = 1.0*self.r
 
@@ -74,7 +74,7 @@ class stateNode():
             self.robotMarker.color.a = 1.0
 
             markerPub.publish(self.robotMarker)
-            print "sending marker", self.robotMarker.pose.position
+            # print "sending marker", self.robotMarker.pose.position
             rate.sleep()
 
     def move_callback(self, action):

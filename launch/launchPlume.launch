@@ -1,15 +1,18 @@
 <launch>
-    <node name="environmentNode" pkg="plume_localization" type="environmentNode.py"/>
+    <node name="environmentNode" pkg="plume_localization" type="environmentNode.py" output="screen"/>
     <node name="actionNode" pkg="plume_localization" type="actionNode.py" output="screen"/>
+
+    <!-- saves the data in ~/.ros folder -->
+<!--    <node pkg="rosbag" type="record" name="recorder" args="-O mybag.bag /state" output="screen"/> -->
 
     <arg name="width" default="100"/>
     <arg name="height" default="100"/>
     <arg name="resolution" default="100"/>
-    <arg name="Lrate" default="20"/>
+    <arg name="Lrate" default="30"/>
     <arg name="w" default=".5 .5"/>
-    <arg name="s0" default="0 0"/>
+    <arg name="s0" default="100 100"/>
     <arg name="g" default="0 0"/>
-    
+    <arg name="type" default="linear"/>	
 
     <param name="resolution" value="$(arg resolution)"/>
     <param name="width" value="$(arg width)"/>
@@ -18,5 +21,7 @@
     <param name="w" value="$(arg w)"/>
     <param name="s0" value="$(arg s0)"/>
     <param name="g" value="$(arg g)"/>
+    <param name="type" value="$(arg type)"/>	
 </launch>
 
+ 

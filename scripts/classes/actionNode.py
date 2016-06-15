@@ -19,41 +19,32 @@ class actionNode():
         rospy.Subscriber("concentration", Float64MultiArray, self.concentrationCallback)
         rospy.init_node('actionNode')
         
-        loopRate = rospy.get_param('Lrate', 20)/2
-        # loopRate = 10
-
+        loopRate = rospy.get_param('Lrate', 50)/2
         rate = rospy.Rate(loopRate)
-        
-        # self.width = width
-        # self.height = height
-        # self.resolution = resolution
 
         self.width = rospy.get_param("width",100)
         self.height = rospy.get_param("height",100)
         self.resolution = rospy.get_param("resolution",100)
 
-
-        self.planner = Astar(self.width, self.height, self.resolution)
         rospy.Subscriber("/clicked_point", PointStamped, self.goal_callback)
         rospy.Subscriber("state", Int16MultiArray, self.state_callback)
         
-
-        w = rospy.get_param('w',[0,1])
+        w = rospy.get_param('w',[0,1]) # gradientW, plannerW
         w = w.split()
         w = [float(i) for i in w]
+        print w
 
-        self.set_actionWeights(np.array(w)) # these are the weights I change gradientW, plannerW
+        self.set_actionWeights(w=np.array(w)) # these are the weights I change gradientW, plannerW
         self.sendAction = 'STAY'
         self.gradientAction = 'STAY'
+
+        self.probCount = np.zeros(2) # keeps track of the probability of which action was taken
         
         self.goal = rospy.get_param('g', [0, 0])
         self.goal = self.goal.split()
         self.goal = [float(i) for i in self.goal]
-        # self.goal.reverse
 
-        # print self.goal, type(self.goal)
-
-        if self.goal[0]>=self.resolution:
+        if self.goal[0]>=self.resolution: # constraining goal to be within the state space defined
             self.goal[0]=self.resolution-1
         elif self.goal[0]<0:
             self.goal[0] = 0.0
@@ -61,20 +52,20 @@ class actionNode():
             self.goal[1]=self.resolution-1
         elif self.goal[1]<0:
             self.goal[1] = 0.0
-
-        # print self.goal, type(self.goal)
         
-        self.planner.set_goal(tuple(self.goal))# init goal location
+
+        self.planner = Astar(self.width, self.height, self.resolution) # this sets up what graph search technique i am using
+        self.planner.set_goal(tuple(self.goal)) # init goal location
 
         while not rospy.is_shutdown():
-            if self.planner.state is not None:
+            if self.planner.state is not None: # wait for state to be intialized
                 self.planner.runAstar()
-                self.set_sendAction()
+                self.set_sendAction_PB() # sampling of actions
+                # self.set_sendAction_WC() # linear combination of actions
                 pub.publish(self.sendAction)
-                # pub.publish(self.gradientAction)
             rate.sleep()
 
-    def concentrationCallback(self, concentration):
+    def concentrationCallback(self, concentration): 
         # this callback function finds the action in the steepest gradient
         max_A = []
         if len(concentration.data)>0:
@@ -82,35 +73,37 @@ class actionNode():
             c_so = concentration.data[len(concentration.data)-1] # last concentration value is at current state from (STAY)
             max_dC = -1000000
             test = []
-            # max_C = max(concentration.data)
+            
+            C =  list(concentration.data)
+            maxG = max([x-c_so for x in C])
+
             for c_si in concentration.data:
                 dC = -c_so + c_si
-                # print dC
-                if dC >= max_dC:
-                    max_dC = dC
-                    # max_A.append(_ACTIONS[i])
-                    max_A = _ACTIONS[i]
+                if dC == maxG: # changes from >= to >
+                    # max_dC = dC
+                    max_A.append(_ACTIONS[i][0])
+                    # max_A = _ACTIONS[i]
                 i = i + 1
-            # import pdb; pdb.set_trace() 
+            max_A = np.array(max_A)
+            self.gradientAction = np.random.choice(max_A)
 
-            # print max_dC, max_A
-            # max_A = np.random.choice(max_A)
-            self.gradientAction = max_A[0]
+            # for c_si in concentration.data:
+            #     dC = -c_so + c_si
+            #     if dC > max_dC: # changes from >= to >
+            #         max_dC = dC
+            #         # max_A.append(_ACTIONS[i][0])
+            #         max_A = _ACTIONS[i]
+            #     i = i + 1
+            
+            # print concentration.data
+            # self.gradientAction = max_A[0]
+            # print self.gradientAction
+            
+            self.set_actionWeights(c=c_so)
+            
 
     def goal_callback(self, goal):
-        setGoal = np.rint(np.array((goal.point.x-1, goal.point.y-1))/self.resolution)
-        # print 'setGoal:',setGoal
-        
-        # angle = -90
-        # theta = (angle/180.) * np.pi
-        # rotMatrix = np.array([[np.cos(theta), -np.sin(theta)], 
-                         # [np.sin(theta),  np.cos(theta)]])
-
-        # setGoal = np.dot(rotMatrix, setGoal)
-        # setGoal = np.rint(setGoal)
-        # if setGoal[0]
-        
-        # print setGoal[0],setGoal[1]
+        setGoal = np.rint(np.array((goal.point.y-1, goal.point.x-1))/self.resolution)
         
         if setGoal[0]<0:
             setGoal[0]=0
@@ -126,9 +119,10 @@ class actionNode():
 
     def state_callback(self, state):
         setState = state.data
+        # print 'state',setState
         self.planner.set_state(setState)
     
-    def set_sendAction(self):
+    def set_sendAction_WC(self): # this takes the linear combination of the actions and the weights
         self.sendAction = 'STAY'
         gA = [0,0]
         pA = [0,0]
@@ -143,19 +137,22 @@ class actionNode():
         # print wA
         for i in range(0,len(A)): # create weights matrix for the actions
             wA[i] = A[i]*self.weights[i]
-
+        print self.gradientAction, self.planner.get_action()
+        print wA
         tA = 0
         for i in range(0,len(A)): # sum over all weighted actions
             tA = tA + wA[i]
         # print np.linalg.norm(tA), np.linalg.norm(tA) !=0
-        
+        print tA
+
         if math.isnan(np.linalg.norm(tA)) is not True and np.linalg.norm(tA) != 0:
             tA = np.round(tA/np.linalg.norm(tA))
 
         for a, i in _ACTIONS:
             if i == list(tA):
                 self.sendAction = a
-        
+        print tA, self.sendAction
+
         stg = 'none'
         if self.sendAction == self.gradientAction:
             stg = 'gradientAction'
@@ -166,10 +163,75 @@ class actionNode():
         if self.sendAction != self.planner.get_action() and self.sendAction != self.gradientAction:
             stg = 'neither'
         
-        print 'gA:', self.gradientAction, 'pA:', self.planner.get_action(), 'sendA:', self.sendAction, stg, tA
+        # print 'gA:', self.gradientAction, 'pA:', self.planner.get_action(), 'sendA:', self.sendAction, stg, tA
+    def set_sendAction_PB(self): 
+        # this chooses the likely action depending on the weights or the probability that an action is selected.
+        # If there is action in between the gradientAction and the plannerAction then take the middle action if weighted the same
+        # if there is multple actions in between the gradientAction and the plannerAction then reduce the action
+        # to the closes inbetween action and then either take the middle action if weigthed the same or choose the action base off of the prob.
+        
+        self.sendAction = 'STAY'
+        gA = [0,0]
+        pA = [0,0]
+        for a, i in _ACTIONS: #extract unit vectors for each action (self.gradientAction and planner action) from _ACTIONS
+            if a == self.gradientAction:
+                gA = i
+            if a == self.planner.get_action():
+                pA = i
 
-    def set_actionWeights(self,w):
-        self.weights = w
+        r = np.random.random_sample() # uniform distribution sampling
+        # print self.probCount
+
+        if r<self.weights[0]:
+            self.sendAction = self.gradientAction
+            # print "gradientAction"
+            self.probCount[0] = self.probCount[0]+1
+        else:
+            self.sendAction = self.planner.get_action()
+            # print "plannerAction"
+            self.probCount[1] = self.probCount[1]+1
+
+        stg = 'none'
+        if self.sendAction == self.gradientAction:
+            stg = 'gradientAction'
+        elif self.sendAction == self.planner.get_action():
+            stg = 'plannerAction'
+        if self.sendAction == self.planner.get_action() and self.sendAction == self.gradientAction:
+            stg = 'both'
+        if self.sendAction != self.planner.get_action() and self.sendAction != self.gradientAction:
+            stg = 'neither'
+        
+        # print 'gA:', self.gradientAction, 'pA:', self.planner.get_action(), 'sendA:', self.sendAction, stg
+
+        
+        # print self.probCount/sum(self.probCount)
+        
+        # print self.gradientAction, self.planner.get_action(), self.sendAction
+        # zaxis = np.array([0,0,1])
+        # gA = np.array(gA)
+        # gA = np.append(gA,0)
+        # pA = np.array(pA)
+        # pA = np.append(pA,0)
+        # print gA, np.cross(zaxis, gA), pA,np.cross(zaxis, pA)
+        
+    def set_actionWeights(self,w=None, c=None):
+
+        if w is not None: # init
+            self.weights = w
+            
+        if c is not None: # dependent on concetration values
+            # if c>50:
+            #     self.weights = np.array((.8, .2))
+            #     print 'gradient', c
+            # elif c<=50:
+            #     self.weights = np.array((.2, .8))
+            #     print 'planner', c
+            # print c
+            wg = 1/100.0*c
+            wp = 1-wg
+            print wg, wp
+            self.weights = np.array((wg,wp))
+            
 
 if __name__=="__main__":
     actionNode()

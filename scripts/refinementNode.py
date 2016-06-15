@@ -22,10 +22,11 @@ class refinementNode():
         self.gradientAction = "STAY"
         while not rospy.is_shutdown():
             # action = np.random.choice(_ACTIONS)
+           # action='NE'
 
             pub.publish(self.offlineAction)
-            # action='NE'
-            # pub.publish(action)
+            # pub.publish(self.gradientAction)
+            # pub.publish(Action)
             rate.sleep()
 
     def gradientActioncallback(self, data):

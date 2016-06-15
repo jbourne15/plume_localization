@@ -28,8 +28,6 @@ class Astar():
         self.state = None
         self.setGoal = None
 
-       
-        
     def runAstar(self):
 
         # set init state, no action, cost
@@ -37,9 +35,10 @@ class Astar():
         # n0 = ((start_x,start_y), 'None', 0)
         # print 's0',self.state
         
-
-
+        # print self.state
+        
         self.state =tuple([np.round(self.spacing*x) for x in self.state])
+
         n0 = (self.state, 'None', 0)
 
         if self.setGoal is not None:
@@ -57,6 +56,8 @@ class Astar():
         lpc = 0
 
         while len(frontier.heap)>0:
+            # print 'got here'
+
             ni = frontier.pop()
             cost_to_node = self.getCost(ni,parentMap)
             if (ni[0], ni[1]) not in visited:
@@ -138,6 +139,9 @@ class Astar():
 
     def get_action(self):
         # print self.state
+
+        # print 's2a',self.S2A
+
         if self.isGoalState(self.state):
             return 'STAY'
         else:

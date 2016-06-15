@@ -23,7 +23,7 @@ _Y = 1
 # xs = 0
 # ys = 25
 #
-# xmin = 10
+# xmin = 10y
 # xmax = 50
 # ymin = 1
 # ymax = 50
@@ -77,7 +77,7 @@ class Map(object):
                                 of the y-dimension.
 
          The default arguments put (0,0) in the center of the grid.
-
+        
         """
         self.origin_x = origin_x
         self.origin_y = origin_y
@@ -145,8 +145,6 @@ class Map(object):
         # the resolution of the plume is encoded into the self.height, and self.width term this creates a finer meshgrid below
         # the actual size of the plume grid is the 50x50 which is specified by the xmax and ymax terms above
 
-
-
         [x,y] = np.meshgrid(np.linspace(xmin,xmax,self.height), np.linspace(ymin,ymax,self.width))
         # [x,y] = np.meshgrid(np.linspace(xmin,xmax,self.resolution), np.linspace(ymin,ymax,self.resolution))
 
@@ -178,8 +176,6 @@ class Map(object):
         # print self.grid
         # print ''
         # print self.grid[0,0], self.grid[5,5], self.grid[0,5], self.grid[5,0]
-
-
 
     def remapping(self,x, inmin, inmax, outmin, outmax):
         return (x-inmin)*(outmax-outmin)/(inmax-inmin)+outmin
@@ -265,4 +261,4 @@ while not rospy.is_shutdown():
     m.concentration_pub.publish(m.sendConcentration)
     rate.sleep()
 
-    # <node pkg="rviz" type="rviz" name="rviz" args="--display-config $(find plume_localization)/rviz/plume_localization.rviz"/>
+    # <node pkg="rviz" type="rviz" name="rviz" args="--display-config $(find plume_localization)/rviz/plume_localization.rviz"/>y
