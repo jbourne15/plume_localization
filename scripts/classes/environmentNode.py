@@ -45,6 +45,11 @@ class environment(object):
         self.width = rospy.get_param("width",100)
         self.height = rospy.get_param("height",100)
         self.resolution = rospy.get_param("resolution",100)
+        
+        self.goal = rospy.get_param('g', [0, 0]) # this goal parameter is for rviz
+        self.goal = self.goal.split()
+        self.goal = [float(i) for i in self.goal]
+
 
         if self.type=='gaussian':
             self.plumeMap = gaussPlume(xs=0,ys=self.width/2,Q=1,Dy=.5,Dz=.5,v=1,h=5,originX=0,originY=0,\
@@ -81,7 +86,7 @@ class environment(object):
         self.plumeMap_data_pub = rospy.Publisher('Cmap_metadata', MapMetaData, latch=True, queue_size=1)
         self.concentration_pub = rospy.Publisher('concentration', Float64MultiArray, queue_size=1)
         self.robotState_pub = rospy.Publisher('state', Int16MultiArray, queue_size=1)
-        self.robotMarker = robotMarker(self.width,self.height, self.resolution)
+        self.robotMarker = robotMarker(self.width,self.height, self.resolution,self.goal)
 
         rospy.Subscriber("action", String, self.action_callback)
 
@@ -95,6 +100,7 @@ class environment(object):
         self.startState = [float(i)*self.resolution/(self.width*1.0) for i in self.startState]
         # print 'reso/wid',float(self.resolution/self.width), self.resolution, self.width
 
+        # if self.resolution == self.width:
         if self.startState[0]>=self.resolution:
             self.startState[0]=self.resolution-1
         elif self.startState[0]<0:
@@ -103,6 +109,17 @@ class environment(object):
             self.startState[1]=self.resolution-1
         elif self.startState[1]<0:
             self.startState[1] = 0.0
+                
+        # elif self.resolution > self.width:
+            # if self.startState[0]>=self.width:
+                # self.startState[0]=self.width-1
+            # elif self.startState[0]<0:
+                # self.startState[0] = 0.0
+            # if self.startState[1]>=self.width:
+                # self.startState[1]=self.width-1
+            # elif self.startState[1]<0:
+                # self.startState[1] = 0.0
+            
 
         if RECORDSTATE:    # if this is true the program will record the distribution of the number of times
                            # a state has been visited
@@ -118,7 +135,9 @@ class environment(object):
 
         self.robotState.data.append(self.startState[0])
         self.robotState.data.append(self.startState[1]) # Y
-        print 'state:',self.robotState.data
+
+        print 'start state:',self.robotState.data
+
         self.robotMarker.set_robotState(self.robotState)
 
         loopRate = rospy.get_param('Lrate', 50)
@@ -306,14 +325,7 @@ class environment(object):
         # raw_input()
 
     def publish_state(self):
-        # print self.robotState
-        # try:
-        # print ''
-        # print self.robotState
-        # self.bag.write('state_bag',self.robotState)
-        # print 'hi'
-        # finally:
-            # self.bag.close()
+        # print 'robotState', self.robotState.data
         self.robotState_pub.publish(self.robotState)
         
     def to_message(self, grid):# this is my wrapper method for all of my child classes for various plume models such as gaussian, etc.
@@ -332,7 +344,7 @@ class environment(object):
         # Rotated maps are not supported... quaternion represents no
         # rotation.
         grid_msg.info.origin = Pose(Point(self.plumeMap.originX, self.plumeMap.originY, 0),
-                               Quaternion(0, 0, 0, 1))
+                                    Quaternion(0, 0, 0, 0))
 
         # Flatten the numpy array into a list of integers from 0-100.
         # This assumes that the grid entries are probalities in the

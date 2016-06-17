@@ -4,9 +4,10 @@ import rospy
 from std_msgs.msg import String
 from std_msgs.msg import Float64MultiArray, Int16MultiArray
 from geometry_msgs.msg import PointStamped
-from graphSearch import Astar
+from graphSearch import Astar, DstarLite
 import numpy as np
 import math
+import time
 
 _ACTIONS = [('N', [-1,0]),('E', [0,1]),('S',[1,0]),('W',[0,-1]),('NE',[-1,1]),('NW',[-1,-1]),\
             ('SE',[1,1]),('SW',[1,-1]), ('STAY',[0,0])]
@@ -17,6 +18,9 @@ class actionNode():
     def __init__(self):
         pub = rospy.Publisher('action', String, queue_size=1)
         rospy.Subscriber("concentration", Float64MultiArray, self.concentrationCallback)
+        rospy.Subscriber("/clicked_point", PointStamped, self.goal_callback)
+        rospy.Subscriber("state", Int16MultiArray, self.state_callback)
+
         rospy.init_node('actionNode')
         
         loopRate = rospy.get_param('Lrate', 50)/2
@@ -26,13 +30,11 @@ class actionNode():
         self.height = rospy.get_param("height",100)
         self.resolution = rospy.get_param("resolution",100)
 
-        rospy.Subscriber("/clicked_point", PointStamped, self.goal_callback)
-        rospy.Subscriber("state", Int16MultiArray, self.state_callback)
+        self.dynW = rospy.get_param("dynW",True)
         
         w = rospy.get_param('w',[0,1]) # gradientW, plannerW
         w = w.split()
         w = [float(i) for i in w]
-        print w
 
         self.set_actionWeights(w=np.array(w)) # these are the weights I change gradientW, plannerW
         self.sendAction = 'STAY'
@@ -43,26 +45,35 @@ class actionNode():
         self.goal = rospy.get_param('g', [0, 0])
         self.goal = self.goal.split()
         self.goal = [float(i) for i in self.goal]
-
-        if self.goal[0]>=self.resolution: # constraining goal to be within the state space defined
-            self.goal[0]=self.resolution-1
-        elif self.goal[0]<0:
-            self.goal[0] = 0.0
-        if self.goal[1]>=self.resolution:
-            self.goal[1]=self.resolution-1
-        elif self.goal[1]<0:
-            self.goal[1] = 0.0
         
+        self.state = None
+        self.planner = None
 
-        self.planner = Astar(self.width, self.height, self.resolution) # this sets up what graph search technique i am using
-        self.planner.set_goal(tuple(self.goal)) # init goal location
+        i = 0
+        while self.state == None:
+            print 'waiting for state init'
+            time.sleep(1)
+            i = i + 1
+            if i>5:
+                print 'error didnt init state'
+                break
+
+            
+        print 'state has initialized:', self.state
+
+        self.planner = Astar(self.width, self.height, self.resolution, goal=tuple(self.goal), state=self.state) # this sets up what graph search technique i am using
+        # self.planner = DstarLite(self.width, self.height, self.resolution, goal=tuple(self.goal), state=self.state)
+
+
 
         while not rospy.is_shutdown():
             if self.planner.state is not None: # wait for state to be intialized
-                self.planner.runAstar()
+                self.planner.runPlanner()
                 self.set_sendAction_PB() # sampling of actions
                 # self.set_sendAction_WC() # linear combination of actions
+                # print 'the action', self.sendAction
                 pub.publish(self.sendAction)
+                # pub.publish('STAY')
             rate.sleep()
 
     def concentrationCallback(self, concentration): 
@@ -80,31 +91,16 @@ class actionNode():
             for c_si in concentration.data:
                 dC = -c_so + c_si
                 if dC == maxG: # changes from >= to >
-                    # max_dC = dC
                     max_A.append(_ACTIONS[i][0])
-                    # max_A = _ACTIONS[i]
                 i = i + 1
             max_A = np.array(max_A)
             self.gradientAction = np.random.choice(max_A)
-
-            # for c_si in concentration.data:
-            #     dC = -c_so + c_si
-            #     if dC > max_dC: # changes from >= to >
-            #         max_dC = dC
-            #         # max_A.append(_ACTIONS[i][0])
-            #         max_A = _ACTIONS[i]
-            #     i = i + 1
-            
-            # print concentration.data
-            # self.gradientAction = max_A[0]
-            # print self.gradientAction
-            
             self.set_actionWeights(c=c_so)
             
 
     def goal_callback(self, goal):
         setGoal = np.rint(np.array((goal.point.y-1, goal.point.x-1))/self.resolution)
-        
+
         if setGoal[0]<0:
             setGoal[0]=0
         elif setGoal[0]>=self.width:
@@ -118,9 +114,10 @@ class actionNode():
         self.planner.set_goal(tuple(setGoal))
 
     def state_callback(self, state):
-        setState = state.data
+        self.state = state.data
         # print 'state',setState
-        self.planner.set_state(setState)
+        if self.planner!=None:
+            self.planner.set_state(self.state)
     
     def set_sendAction_WC(self): # this takes the linear combination of the actions and the weights
         self.sendAction = 'STAY'
@@ -201,7 +198,7 @@ class actionNode():
         if self.sendAction != self.planner.get_action() and self.sendAction != self.gradientAction:
             stg = 'neither'
         
-        # print 'gA:', self.gradientAction, 'pA:', self.planner.get_action(), 'sendA:', self.sendAction, stg
+        # print 's:', self.planner.state, 'gA:', self.gradientAction, 'pA:', self.planner.get_action(), 'sendA:', self.sendAction, stg
 
         
         # print self.probCount/sum(self.probCount)
@@ -215,7 +212,14 @@ class actionNode():
         # print gA, np.cross(zaxis, gA), pA,np.cross(zaxis, pA)
         
     def set_actionWeights(self,w=None, c=None):
-
+        
+        if self.dynW != 1:
+                    
+            if w is not None: # init
+                self.weights = w
+            # print self.weights
+            return
+        
         if w is not None: # init
             self.weights = w
             
@@ -229,7 +233,7 @@ class actionNode():
             # print c
             wg = 1/100.0*c
             wp = 1-wg
-            print wg, wp
+            # print wg, wp
             self.weights = np.array((wg,wp))
             
 
