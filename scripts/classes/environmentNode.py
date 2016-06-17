@@ -3,7 +3,7 @@
 import numpy as np
 import math
 from copy import deepcopy
-from plumeModel import gaussPlume, linearPlume, randomPlume
+from plumeModel import gaussPlume, linearPlume, randomPlume, sin_sinPlume
 from robotState import robotMarker
 
 #ROS specific 
@@ -79,7 +79,9 @@ class environment(object):
         elif self.type == 'random':
             self.plumeMap = randomPlume(originX=0,originY=0, resolution=self.resolution, width=self.width,\
                                         height=self.height, h=1, clx=100)
-    
+        elif self.type == 'sin':
+            self.plumeMap = sin_sinPlume(originX=0, originY=0, resolution=self.resolution, width=self.width,\
+                                         height=self.height, a=1/5.0, b=1/5.0)
         # print self.plumeMap.get_conc().shape
         
         self.plumeMap_pub = rospy.Publisher('map', OccupancyGrid, latch=True, queue_size=1)
@@ -89,6 +91,7 @@ class environment(object):
         self.robotMarker = robotMarker(self.width,self.height, self.resolution,self.goal)
 
         rospy.Subscriber("action", String, self.action_callback)
+        rospy.Subscriber("goal", Int16MultiArray, self.goal_callback)
 
         self.sendConcentration = Float64MultiArray() # init
         self.robotState = Int16MultiArray()
@@ -110,16 +113,6 @@ class environment(object):
         elif self.startState[1]<0:
             self.startState[1] = 0.0
                 
-        # elif self.resolution > self.width:
-            # if self.startState[0]>=self.width:
-                # self.startState[0]=self.width-1
-            # elif self.startState[0]<0:
-                # self.startState[0] = 0.0
-            # if self.startState[1]>=self.width:
-                # self.startState[1]=self.width-1
-            # elif self.startState[1]<0:
-                # self.startState[1] = 0.0
-            
 
         if RECORDSTATE:    # if this is true the program will record the distribution of the number of times
                            # a state has been visited
@@ -150,6 +143,8 @@ class environment(object):
             self.publish_concentration()
             self.robotMarker.publish_Marker()
             rate.sleep()
+    def goal_callback(self, goal):
+        self.robotMarker.set_goal(list(goal.data)) # set goal in rviz
 
     def action_callback(self,action):
 
@@ -295,7 +290,7 @@ class environment(object):
     
     def publish_concentration(self):
         self.sendConcentration = Float64MultiArray()
-        C =self.plumeMap.get_conc() # changed this to the normalize concentration for rviz 0 - 100
+        C =self.plumeMap.get_grid() # grid is from 0-100
 
         for a, i in _ACTIONS:
             statei = deepcopy(self.robotState.data)

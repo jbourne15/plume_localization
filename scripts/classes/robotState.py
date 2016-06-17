@@ -166,3 +166,7 @@ class robotMarker(object):
         self.markerPub.publish(self.robotMarker)
         self.pointPub.publish(self.path)
         self.goalPub.publish(self.plannerGoal)
+
+    def set_goal(self,goal):
+        self.plannerGoal.pose.position.x = (goal[1]+.5)*self.reso
+        self.plannerGoal.pose.position.y = (goal[0]+.5)*self.reso

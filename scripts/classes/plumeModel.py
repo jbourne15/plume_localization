@@ -76,8 +76,8 @@ class gaussPlume(plumeModel): # child class
     def get_grid(self):
         return self.grid
     def get_conc(self):
-        # return self.c
-        return self.grid
+        return self.c
+        # return self.grid
 
     def main(self):
         # this is method is ran if this file is ran from the command line
@@ -446,57 +446,139 @@ class randomPlume(plumeModel): # child class
         # plt.ylabel('y')
         plt.show()
 
-# % [f,x,y] = rsgene2D(N,rL,h,clx,cly) 
-# %
-# % generates a square 2-dimensional random rough surface f(x,y) with NxN 
-# % surface points. The surface has a Gaussian height distribution and 
-# % exponential autocovariance functions (in both x and y), where rL is the 
-# % length of the surface side, h is the RMS height and clx and cly are the 
-# % correlation lengths in x and y. Omitting cly makes the surface isotropic.
-# %
-# % Input:    N   - number of surface points (along square side)
-# %           rL  - length of surface (along square side)
-# %           h   - rms height
-# %           clx, (cly)  - correlation lengths (in x and y)
-# %
-# % Output:   f  - surface heights
-# %           x  - surface points
-# %           y  - surface points
-# %
 
-# %
 
-# format long;
+class sin_sinPlume(plumeModel): # child class
 
-# x = linspace(-rL/2,rL/2,N); y = linspace(-rL/2,rL/2,N);
-# [X,Y] = meshgrid(x,y); 
+    def __init__(self,originX=0, originY=0, resolution=100, width=100, height=100, a=1,b=1):
+        self.originX = originX
+        self.originY = originY
+        self.resolution = resolution
+        self.width = width
+        self.height = height
+        self.grid = np.zeros((resolution,resolution))
+        self.a = a
+        self.b = b
+        
+        super(sin_sinPlume, self).__init__(originX, originY, resolution,width, height)
+        # this line of code utilizes the init method from the previous class plumeModel
+        
+        # print self.resolution, self.width, self.height
+        
+        self.set_values() # this method sets the concentration values and maps the values from 0-1 to self.grid
 
-# Z = h.*randn(N,N); % uncorrelated Gaussian random rough surface distribution
-#                    % with rms height h
-                   
-# % isotropic surface
-# if nargin == 4
-#     % Gaussian filter
-#     F = exp(-(abs(X)+abs(Y))/(clx/2));
+    def set_values(self):
+        xmin = 1
+        ymin = 1
+        [x,y] = np.meshgrid(np.linspace(xmin,self.width,num=self.resolution), np.linspace(ymin,self.height\
+                                                                                      ,num=self.resolution))
+
+        Z=120*np.sin(self.a*x)*np.sin(self.b*y)
+        
+        self.c = Z
+        self.c =np.transpose(self.c)
+                
+        Cmax = np.ndarray.max(self.c)
+        Cmin = np.ndarray.min(self.c)
+
+        # map to the 0-100 range for the Occupancygrid msg
+        for i in range(0,len(self.c)):
+            for j in range(0,len(self.c)):
+                self.grid[i,j] = self.remapping(self.c[i,j], Cmin, Cmax, 0, 100)
+
+    def get_grid(self):
+        return self.grid
+    def get_conc(self):
+        return self.c
+
+    def main(self):
+        # this is method is ran if this file is ran from the command line
+        # it will show a matlab contour plot of the gaussian plume for the parameters defined in the if __name__ == main below
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+        from matplotlib import cm
+        from matplotlib.ticker import LinearLocator, FormatStrFormatter
+
+
+        xmin = 1
+        ymin = 1
+        [x,y] = np.meshgrid(np.linspace(xmin,self.width,num=self.resolution), np.linspace(ymin,self.height\
+                                                                                      ,num=self.resolution))
+
+        Z=np.sin(self.a*x)*np.sin(self.b*y)
+
+
+        c = Z
+        c = np.transpose(c)
+
+        # gradx, grady = np.gradient(c, self.resolution/len(x), self.resolution/len(x))
+
+        # fig1 = plt.figure()
+        # Q = plt.quiver(x, y,-grady,-gradx) # had to switch because of c.transpose and invert_xaxis to make it look like my rviz plots
+        # plt.gca().invert_xaxis()
+        # plt.gca().invert_yaxis()
+        # # plt.show()
+
+        # fig2 = plt.figure()
+        # plt.contourf (x,y,c)
+        # plt.colorbar()
+        # plt.gca().invert_xaxis()
+        # plt.gca().invert_yaxis()
+        # plt.show()
+
+
+        fig3 = plt.figure()
+        ax = fig3.gca(projection='3d')
+        surf = ax.plot_surface(x, y, c, rstride=1, cstride=1, cmap=cm.coolwarm, linewidth=0, antialiased=False)
+        plt.gca().invert_xaxis()
+        plt.gca().invert_yaxis()
+        plt.title('Concentration')
+        plt.xlabel('x')
+        plt.ylabel('y')
+        plt.show()
+
+        # # note I hade to switch the data and label because of the invert xaxis and yaxis to look like my rviz plots
+        # fig4 = plt.figure()
+        # ax = fig4.gca(projection='3d')
+        # surf = ax.plot_surface(x, y, np.abs(gradx), rstride=1, cstride=1, cmap=cm.coolwarm, linewidth=0, antialiased=False)
+        # plt.gca().invert_xaxis()
+        # plt.gca().invert_yaxis()
+        # plt.title('abs of gradient Y')
+        # plt.xlabel('x')
+        # plt.ylabel('y')
+        # # plt.show()
+
+        # fig5 = plt.figure()
+        # ax = fig5.gca(projection='3d')
+        # surf = ax.plot_surface(x, y,np.abs(grady), rstride=1, cstride=1, cmap=cm.coolwarm, linewidth=0, antialiased=False)
+        # plt.gca().invert_xaxis()
+        # plt.gca().invert_yaxis()
+        # plt.title('abs gradient X')
+        # plt.xlabel('x')
+        # plt.ylabel('y')
+        # # plt.show()
+        
+        # # gradx = np.zeros(100,100)
+        # # grady = np.ones(100,100)
+
+        # gradM = np.power(np.add(np.power(gradx,2),np.power(grady,2)),.5)
+
+        # fig6 = plt.figure()
+        # ax = fig6.gca(projection='3d')
+        # surf = ax.plot_surface(x, y, gradM, rstride=1, cstride=1, cmap=cm.coolwarm, linewidth=0, antialiased=False)
+        # plt.gca().invert_xaxis()
+        # plt.gca().invert_yaxis()
+        # plt.title('gradient')
+        # plt.xlabel('x')
+        # plt.ylabel('y')
+        # plt.show()
+
     
-#     % correlation of surface including convolution (faltung), inverse
-#     % Fourier transform and normalizing prefactors
-#     f = 2*rL/N/clx*ifft2(fft2(Z).*fft2(F));
-    
-# % non-isotropic surface
-# elseif nargin == 5
-#     % Gaussian filter
-#     F = exp(-(abs(X)/(clx/2)+abs(Y)/(cly/2)));
-    
-#     % correlation of surface including convolution (faltung), inverse
-#     % Fourier transform and normalizing prefactors
-#     f = 2*rL/N/sqrt(clx*cly)*ifft2(fft2(Z).*fft2(F));
-    
-# end
 
 if __name__ == "__main__":
     # myPlume = gaussPlume(xs=0,ys=50,Q=1,Dy=1,Dz=.5,v=1,h=5,originX=0,originY=0,resolution=100,width=100,height=100)
     # print myPlume.c, np.size(myPlume.c,0),np.size(myPlume.c,1)
     # myPlume.main() # this plots the plume
-    myPlume = randomPlume(resolution=100,width=100,height=100,h=5,clx=1000)
+    # myPlume = randomPlume(resolution=100,width=100,height=100,h=5,clx=1000)
+    myPlume = sin_sinPlume(resolution=100,width=100,height=100, a = 1/10.0, b = 1/10.0)
     myPlume.main()

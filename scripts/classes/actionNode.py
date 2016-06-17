@@ -16,7 +16,9 @@ _ACTIONS = [('N', [-1,0]),('E', [0,1]),('S',[1,0]),('W',[0,-1]),('NE',[-1,1]),('
 class actionNode():
 
     def __init__(self):
-        pub = rospy.Publisher('action', String, queue_size=1)
+        actionPub = rospy.Publisher('action', String, queue_size=1)
+        goalPub = rospy.Publisher('goal', Int16MultiArray,queue_size=1)
+        
         rospy.Subscriber("concentration", Float64MultiArray, self.concentrationCallback)
         rospy.Subscriber("/clicked_point", PointStamped, self.goal_callback)
         rospy.Subscriber("state", Int16MultiArray, self.state_callback)
@@ -65,15 +67,19 @@ class actionNode():
         # self.planner = DstarLite(self.width, self.height, self.resolution, goal=tuple(self.goal), state=self.state)
 
 
-
+        sampleGoal = Int16MultiArray()
         while not rospy.is_shutdown():
             if self.planner.state is not None: # wait for state to be intialized
                 self.planner.runPlanner()
                 self.set_sendAction_PB() # sampling of actions
                 # self.set_sendAction_WC() # linear combination of actions
-                # print 'the action', self.sendAction
-                pub.publish(self.sendAction)
-                # pub.publish('STAY')
+                actionPub.publish(self.sendAction)
+
+                ## for dynamic goal changes
+                ## sampleGoal.data = np.random.random_integers(0,high=self.resolution-1,size=2)
+                ## self.planner.set_goal(sampleGoal.data)
+                ## goalPub.publish(sampleGoal)
+
             rate.sleep()
 
     def concentrationCallback(self, concentration): 
@@ -100,7 +106,7 @@ class actionNode():
 
     def goal_callback(self, goal):
         setGoal = np.rint(np.array((goal.point.y-1, goal.point.x-1))/self.resolution)
-
+        
         if setGoal[0]<0:
             setGoal[0]=0
         elif setGoal[0]>=self.width:
@@ -224,12 +230,6 @@ class actionNode():
             self.weights = w
             
         if c is not None: # dependent on concetration values
-            # if c>50:
-            #     self.weights = np.array((.8, .2))
-            #     print 'gradient', c
-            # elif c<=50:
-            #     self.weights = np.array((.2, .8))
-            #     print 'planner', c
             # print c
             wg = 1/100.0*c
             wp = 1-wg
