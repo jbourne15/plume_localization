@@ -576,9 +576,9 @@ class sin_sinPlume(plumeModel): # child class
     
 
 if __name__ == "__main__":
-    # myPlume = gaussPlume(xs=0,ys=50,Q=1,Dy=1,Dz=.5,v=1,h=5,originX=0,originY=0,resolution=100,width=100,height=100)
+    myPlume = gaussPlume(xs=0,ys=50,Q=1,Dy=1,Dz=.5,v=1,h=5,originX=0,originY=0,resolution=100,width=100,height=100)
     # print myPlume.c, np.size(myPlume.c,0),np.size(myPlume.c,1)
     # myPlume.main() # this plots the plume
     # myPlume = randomPlume(resolution=100,width=100,height=100,h=5,clx=1000)
-    myPlume = sin_sinPlume(resolution=100,width=100,height=100, a = 1/10.0, b = 1/10.0)
+    # myPlume = sin_sinPlume(resolution=100,width=100,height=100, a = 1/10.0, b = 1/10.0)
     myPlume.main()
