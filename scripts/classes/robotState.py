@@ -69,9 +69,9 @@ class robotMarker(object):
         self.robotMarker.pose.orientation.y = 0
         self.robotMarker.pose.orientation.z = 0
         self.robotMarker.pose.orientation.w = 1.0
-        self.robotMarker.scale.x = 1*reso*self.scale
-        self.robotMarker.scale.y = 1*reso*self.scale
-        self.robotMarker.scale.z = 1*reso*self.scale
+        self.robotMarker.scale.x = 1.1*reso*self.scale
+        self.robotMarker.scale.y = 1.1*reso*self.scale
+        self.robotMarker.scale.z = 1.1*reso*self.scale
         self.robotMarker.color.r = 0.0
         self.robotMarker.color.g = 0.0
         self.robotMarker.color.b = 1.0
@@ -132,7 +132,7 @@ class robotMarker(object):
         self.path.color.r = 1.0
         self.path.color.g = 0.0
         self.path.color.b = 0.0
-        self.path.color.a = 1.0
+        self.path.color.a = .5
         # self.path.lifetime = rospy.Duration(1)
         
         
@@ -163,8 +163,8 @@ class robotMarker(object):
         self.path.points.append(point)
         
     def publish_Marker(self):
-        self.markerPub.publish(self.robotMarker)
         self.pointPub.publish(self.path)
+        self.markerPub.publish(self.robotMarker)
         self.goalPub.publish(self.plannerGoal)
 
     def set_goal(self,goal):

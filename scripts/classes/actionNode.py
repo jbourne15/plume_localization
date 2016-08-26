@@ -8,6 +8,7 @@ from graphSearch import Astar, DstarLite
 import numpy as np
 import math
 import time
+import random
 
 _ACTIONS = [('N', [-1,0]),('E', [0,1]),('S',[1,0]),('W',[0,-1]),('NE',[-1,1]),('NW',[-1,-1]),\
             ('SE',[1,1]),('SW',[1,-1]), ('STAY',[0,0])]
@@ -82,27 +83,70 @@ class actionNode():
 
             rate.sleep()
 
+    # def concentrationCallback(self, concentration): 
+    #     # this callback function finds the action in the steepest gradient
+    #     max_A = []
+    #     if len(concentration.data)>0:
+    #         i = 0
+    #         c_so = concentration.data[len(concentration.data)-1]  # last concentration value is at current state from (STAY)
+    #         max_dC = -1000000
+    #         test = []
+            
+    #         C =  list(concentration.data)
+    #         maxG = max([x-c_so for x in C])
+
+    #         for c_si in concentration.data:
+    #             dC = -c_so + c_si
+    #             if dC == maxG: # changes from >= to >
+    #                 max_A.append(_ACTIONS[i][0])
+
+    #             i = i + 1
+    #         max_A = np.array(max_A)
+    #         self.gradientAction = np.random.choice(max_A)
+    #         self.set_actionWeights(c=c_so)
+            
+    
     def concentrationCallback(self, concentration): 
         # this callback function finds the action in the steepest gradient
         max_A = []
-        if len(concentration.data)>0:
+        sensor_noise = 1
+
+        C = list(concentration.data)
+                    
+        if len(C)>0:
+
+            for i in range(len(C)): # adding the sensor_noise
+                if C[i] <= 0 or C[i]<= sensor_noise:
+                    C[i] = 0
+                else:
+                    C[i]=random.gauss(C[i],sensor_noise)
+
+            
             i = 0
-            c_so = concentration.data[len(concentration.data)-1] # last concentration value is at current state from (STAY)
+            c_so = C[len(C)-1]  # last concentration value is at current state from (STAY)
             max_dC = -1000000
             test = []
-            
-            C =  list(concentration.data)
+
             maxG = max([x-c_so for x in C])
 
-            for c_si in concentration.data:
+            # print 'maxG', maxG, c_so
+            
+            for c_si in C:
                 dC = -c_so + c_si
+                # print c_si, dC
                 if dC == maxG: # changes from >= to >
                     max_A.append(_ACTIONS[i][0])
+
                 i = i + 1
             max_A = np.array(max_A)
-            self.gradientAction = np.random.choice(max_A)
+            # print max_A
+            if maxG == 0:
+                self.gradientAction = 'STAY'
+                print '0 gradient or less than sensor noise'
+            else:
+                self.gradientAction = np.random.choice(max_A)
             self.set_actionWeights(c=c_so)
-            
+
 
     def goal_callback(self, goal):
         setGoal = np.rint(np.array((goal.point.y-1, goal.point.x-1))/self.resolution)
@@ -206,16 +250,7 @@ class actionNode():
         
         # print 's:', self.planner.state, 'gA:', self.gradientAction, 'pA:', self.planner.get_action(), 'sendA:', self.sendAction, stg
 
-        
         # print self.probCount/sum(self.probCount)
-        
-        # print self.gradientAction, self.planner.get_action(), self.sendAction
-        # zaxis = np.array([0,0,1])
-        # gA = np.array(gA)
-        # gA = np.append(gA,0)
-        # pA = np.array(pA)
-        # pA = np.append(pA,0)
-        # print gA, np.cross(zaxis, gA), pA,np.cross(zaxis, pA)
         
     def set_actionWeights(self,w=None, c=None):
         
@@ -223,14 +258,12 @@ class actionNode():
                     
             if w is not None: # init
                 self.weights = w
-            # print self.weights
             return
         
         if w is not None: # init
             self.weights = w
             
         if c is not None: # dependent on concetration values
-            # print c
             wg = 1/100.0*c
             wp = 1-wg
             # print wg, wp

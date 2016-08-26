@@ -37,10 +37,10 @@ import random
 
 
 
-landmarks  = [[20.0, 20.0], 
-              [80.0, 80.0], 
-              [20.0, 80.0],
-              [80.0, 20.0]]#,
+landmarks  = [[1.0, 1.0], 
+              [99.0, 99.0], 
+              [1.0, 99.0],
+              [99.0, 1.0]]#,
               # [50.0, 40.0]]
 
 world_size = 100.0
@@ -116,10 +116,7 @@ class robot:
     def measurement_prob(self, measurement):
         
         # calculates how likely a measurement should be
-        
-        prob = 1.0;
-        # print '(x,y)',self.x,self.y
-        # print measurement
+        prob = 1.0 
         for i in range(len(landmarks)):
             dist = sqrt((self.x - landmarks[i][0]) ** 2 + (self.y - landmarks[i][1]) ** 2)
             prob *= self.Gaussian(dist, self.sense_noise, measurement[i]) # this has assumed sensor noise 
@@ -134,8 +131,6 @@ class robot:
     
     def __repr__(self):
         return '[x=%.6s y=%.6s orient=%.6s]' % (str(self.x), str(self.y), str(self.orientation))
-
-
 
 def eval(r, p):
     sum = 0.0;
@@ -189,8 +184,11 @@ def plot_PF(particles,robot):
 ####   DON'T MODIFY ANYTHING ABOVE HERE! ENTER CODE BELOW ####
 
 myrobot = robot()
+real_noise = 1.0
+predicted_noise = 1.0
 myrobot = myrobot.move(0.1, 5.0)
-myrobot.set_noise(0.5,0.5,5.0)
+myrobot.set_noise(0.5,0.5,real_noise)
+
 Z = myrobot.sense()
 fig=plt.figure()
 plt.ion()
@@ -201,7 +199,7 @@ T = 100
 p = []
 for i in range(N):
     r = robot()
-    r.set_noise(0.5, 0.5, 5.0)
+    r.set_noise(0.5, 0.5, predicted_noise)
     p.append(r)
 plot_PF(p,myrobot)
 for t in range(T):
@@ -219,15 +217,7 @@ for t in range(T):
     w = []
     for i in range(N):
         w.append(p[i].measurement_prob(Z))
-    
-    # display relevante weights
-    count = 0
-    for z in range(len(w)):
-        if w[z] > max(w)/2:
-            count += 1 
-            # print p[z], w[z]
-    # raw_input(count)
-    
+
     # Resampling weighted particles
     p3 = []
     index = int(random.random() * N)

@@ -26,7 +26,7 @@ from geometry_msgs.msg import PointStamped
 
 _ACTIONS = [('N', [-1,0]),('E', [0,1]),('S',[1,0]),('W',[0,-1]),('NE',[-1,1]),('NW',[-1,-1]),\
             ('SE',[1,1]),('SW',[1,-1]), ('STAY',[0,0])]
-RECORDSTATE = 0
+RECORDSTATE = 1
 
 class environment(object):
     '''this classe takes a plumeModel class and sents it to rviz for visualization.  This class acts as the 
@@ -196,8 +196,8 @@ class environment(object):
         x = []
         y = []
         print len(self.stateHistory)/2
-        # if t2-self.t1 >= 30:p
-        if len(self.stateHistory)/2>=5000:
+        # if len(self.stateHistory)/2>=5000:
+        if True:
             for i in self.stateHistory:
                 if c%2 is 0:
                     #even
@@ -219,13 +219,8 @@ class environment(object):
             x = np.array(x)
             y = np.array(y)
             
-            
              # <!-- saves the data in ~/.ros folder -->
             np.savetxt('mydata.csv', (x,y), delimiter=',')            
-            # t = h = o = np.arange(0.0,5.0,1.0)
-            # np.savetxt('hello.csv', t, delimiter=',')   # x,y,z equal sized 1D arrayes
-            # print 'saved'
-            # print y
 
             # plt.hist2d(x,y,bins=self.resolution)
             # plt.colorbar()
@@ -233,50 +228,26 @@ class environment(object):
             # # plt.gca().invert_xaxis()
             # plt.gca().invert_yaxis()
             # plt.show()
-            '''
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-            # x, y = np.random.rand(2, 100) * 4
+
+
+# uncomment to plot histograms
+            # import numpy as np
+            # import matplotlib.mlab as mlab
+            # import matplotlib.pyplot as plt
+
+            # # plt.ion()
+            # # the histogram of the data
+
+            # # raw_input("ready to plot?")
+            # n, bins, patches = plt.hist(x, 100, normed=1, facecolor='green', alpha=0.75)
+            # plt.axis([0, 100, 0, .3])
+            # plt.grid(True)
+            # plt.show()
             
-            # print x
-            print "plotting"
-            hist, xedges, yedges = np.histogram2d(x, y, bins=50)
-
-            elements = (len(xedges) - 1) * (len(yedges) - 1)
-
-            xpos, ypos = np.meshgrid(xedges[:-1] + 0.25, yedges[:-1] + 0.25)
-
-            
-            xpos = xpos.flatten()
-            ypos = ypos.flatten()
-            zpos = np.zeros(elements)
-            dx = 0.5 * np.ones_like(zpos)
-            dy = dx.copy()
-            dz = hist.flatten()
-
-            ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color='blue', zsort='average')
-
-            plt.show()
-
-            '''
-
-            import numpy as np
-            import matplotlib.mlab as mlab
-            import matplotlib.pyplot as plt
-
-            # plt.ion()
-            # the histogram of the data
-
-            # raw_input("ready to plot?")
-            n, bins, patches = plt.hist(x, 100, normed=1, facecolor='green', alpha=0.75)
-            plt.axis([0, 100, 0, .3])
-            plt.grid(True)
-            plt.show()
-            
-            n, bins, patches = plt.hist(y, 100, normed=1, facecolor='green', alpha=0.75)            
-            plt.axis([0, 100, 0, .3])
-            plt.grid(True)
-            plt.show()
+            # n, bins, patches = plt.hist(y, 100, normed=1, facecolor='green', alpha=0.75)            
+            # plt.axis([0, 100, 0, .3])
+            # plt.grid(True)
+            # plt.show()
 
 
 

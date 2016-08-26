@@ -171,7 +171,6 @@ class AstarNode():
             # if statei.point.y>=self.sy:
             #     statei.point.y = self.sy-1
 
-
             if statei.point == state.point:
                 t = "don't add this state"
             else:
