@@ -587,7 +587,7 @@ def plot_PF(particles,plume,t, mp=None, w=None):
     # right now I am replotting the stationary plume this is slow
     
     
-    plt.figure('simfig',figsize=(18,11))
+    simfig = plt.figure('simfig',figsize=(18,11))
     plt.clf()
     plt.axis([-world_size/10.0,world_size+world_size/10.0,-world_size/10.0,world_size+world_size/10.0])
 
@@ -781,7 +781,7 @@ def plot_PF(particles,plume,t, mp=None, w=None):
     # -------------------------------------------------------------------------------#
     xs,ys,Q,v,Dy,Dz,H,a = get_states(particles)
 
-    plt.figure('other_parameters',figsize=(6,11))
+    otherfig = plt.figure('other_parameters',figsize=(6,11))
     plt.clf()
     plt.axis([particles[1].Dy_SS[0]*.8,particles[1].Dy_SS[1]*1.05,particles[1].Dz_SS[0]*.8,particles[1].Dz_SS[1]*1.05])
     
@@ -905,7 +905,9 @@ def plot_PF(particles,plume,t, mp=None, w=None):
     # # print len(p), len(w)
     # plt.scatter(range(N), w, s=5, color='k')
     # -------------------------------------------------------------------------------#
-    plt.draw()
+    simfig.canvas.draw()
+    otherfig.canvas.draw()
+    # plt.draw()
     # raw_input()
     time.sleep(0.0001)
     # raw_input()
